@@ -4,6 +4,19 @@ import java.util.Map;
 
 public class PointOfSpeech {
 
+    public class State{
+
+        public double score;
+        public String prev;
+
+        public State(Double score, String prev){
+            this.score = score;
+            this.prev = prev;
+        }
+
+
+    }
+
 
     /**
      *  constructor
@@ -17,8 +30,8 @@ public class PointOfSpeech {
      */
     public String[] viterbi(String[] sentence){
         HashMap<String, Double> currScore = new HashMap<>();
-        HashMap<String, String> backPointer = new HashMap<>();
         ArrayList<String> nextStates = new ArrayList<>();
+        ArrayList<Map<String, State>> backPointer = new ArrayList<>();
 
         currScore.put("#", 0.0);
 
