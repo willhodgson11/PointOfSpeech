@@ -8,8 +8,8 @@ import java.util.*;
 
 public class PointOfSpeech {
 
-    public HashMap<String, HashMap<String, Double>> observations;               // Maps a given word with
-    public HashMap<String, Map<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
+    public HashMap<String, HashMap<String, Double>> observations;   // Maps a given word with all its associated tags and their normalized frequencies
+    public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
     public String trainSentences;
     public String trainTags;
 
@@ -21,7 +21,7 @@ public class PointOfSpeech {
         public double score;
         public String prev;
 
-        public State(Double score, String prev){
+        public State(String prev, Double score){
             this.score = score;
             this.prev = prev;
         }
@@ -31,7 +31,9 @@ public class PointOfSpeech {
 
 
     /**
-     *  constructor
+     * Constructor
+     * @param trainSentencesFile
+     * @param trainTagsFile
      */
     public PointOfSpeech(String trainSentencesFile, String trainTagsFile){
         this.trainSentences = trainSentencesFile;
@@ -43,33 +45,43 @@ public class PointOfSpeech {
      * perform Viterbi decoding to find the best sequence of tags for a line (sequence of words)
      */
     public String[] viterbi(String[] sentence){
-        //yes
+        // initialize a map to track the current score
         HashMap<String, Double> currScore = new HashMap<>();
-        //yes
+        // initialize a set to hold all possible current states associated with a word
         HashSet<String> currStates = new HashSet<>();
-        //idk
-        HashMap<String, State> temp = new HashMap<>();
-        //yes
-        ArrayList<Map<String, State>> backPointer = new ArrayList<>();
+        // initialize a list of maps tracking the previous state with the best current state
+        ArrayList<Map<String, State>> backTrack = new ArrayList<>();
+        // initialize a resulting path with one tag per word
+        String[] res = new String[sentence.length];
 
-        currScore.put("#", 0.0);    // Let  "#" be the tag "before" the start of the sentence.
+        currScore.put("#", 0.0);    // Let "#" be the tag "before" the start of the sentence.
 
+        // For each unique word
         for(String currentWord : sentence){
-            for(String tag : currStates){
+            // Loop through all the associated states
+            for(String currState : currStates){
+                // Create a new map that associates one state with its predecessor
+                HashMap<String, State> prevState = new HashMap<>();
                 // Create a new set to hold all possible transitions associated with the current state
-                Set<String> newStates = transitions.get(tag).keySet();
-                // If the current word is known to have tag
-                if(observations.get(currentWord).containsKey(tag)){
-
-
-
+                Set<String> newStates = transitions.get(currState).keySet();
+                // Loop through all possible transitions
+                for(String nextState : newStates){
+                    // Define the score of the next state as the current score plus the transition score to the next state
+                    double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
+                    // If the current word is known to have current tag,
+                    if(observations.get(currentWord).containsKey(currState)) {
+                        nextScore += observations.get(currentWord).get(currState);
+                    }
+                    else {
+                        nextScore -= 10;
+                    }
+                    prevState.put(currState, new State(nextState, nextScore));
                 }
-
             }
+            backTrack.add(prevState)
         }
 
-
-
+        return res;
     }
 
     /**
