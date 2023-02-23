@@ -54,10 +54,10 @@ public class PointOfSpeech {
 
         // For each unique word
         for(String currentWord : sentence){
+            // Create a map to track the previous state associated with a given state
+            HashMap<String, String> previous = new HashMap<>();
             // Loop through all current possible states
             for(String currState : currScore.keySet()){
-                // Create a map to track the previous state associated with the current state
-                HashMap<String, String> previous = new HashMap<>();
                 // Create a map to track the scores of all the potential new states
                 HashMap<String, Double> newScore = new HashMap<>();
                 // Loop through all possible transitions
@@ -70,13 +70,20 @@ public class PointOfSpeech {
                     } else {
                         nextScore -= 100;       // Otherwise, assign unseen penalty of -100
                     }
-                    // Assign this computed score to the associated state
-                    newScore.put(nextState, nextScore);
+                    // If the current state does not have an associated score, or if the new calculated score is better than the existing one,
+                    if(!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)){
+                        newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
+                    }
                 }
                 // Advance
                 currScore = newScore;
+                String prevState = currState;       // For ease of understanding
+                // Add each winning state to a map with its predecessor
+                for(String state : currScore.keySet()) {
+                    previous.put(prevState, state);
+                }
             }
-            backTrack.add(prevState)
+            backTrack.add(previous);
         }
 
         return res;
