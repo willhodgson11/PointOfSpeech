@@ -42,13 +42,13 @@ public class PointOfSpeech {
     /**
      * perform Viterbi decoding to find the best sequence of tags for a line (sequence of words)
      */
-    public String[] viterbi(String[] sentence){
+    public ArrayList<String> viterbi(String[] sentence){
         // initialize a map to track the current score of the "Winners"
         HashMap<String, Double> currScore = new HashMap<>();
         // initialize a list of maps tracking the previous state with the best current state
         ArrayList<Map<String, String>> backTrack = new ArrayList<>();
         // initialize a resulting path with one tag per word
-        String[] res = new String[sentence.length];
+        ArrayList<String> res = new ArrayList<>();
 
         currScore.put("#", 0.0);    // Let "#" be the tag "before" the start of the sentence.
 
@@ -84,6 +84,28 @@ public class PointOfSpeech {
                 }
             }
             backTrack.add(previous);
+        }
+
+        // Set up placeholders for best state and score
+        String bestState = null;
+        double bestScore;
+        // Find the best state for the last word
+        for(String state : currScore.keySet()){
+            // If current state has a better score than previous best
+            if(bestState == null || currScore.get(state) > bestScore){
+                bestState = state;                      // Record this new best state
+                bestScore =  currScore.get(state) ;     // Record this new best score
+            }
+        }
+        // Add best state for last word at end of list
+        res.add(backTrack.size()-1, bestState);
+        // Build the resulting path
+        for(int i = backTrack.size()-1; i > 0; i--){
+            Map temp = backTrack.get(i);                    // Get the map for the current word
+            String prev = (String) temp.get(bestState);     // Get the previous state
+            res.add(i-1, prev);                       // Insert the previous state
+            bestState = prev;
+            i--;
         }
 
         return res;
