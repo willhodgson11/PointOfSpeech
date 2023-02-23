@@ -25,8 +25,6 @@ public class PointOfSpeech {
             this.score = score;
             this.prev = prev;
         }
-
-
     }
 
 
@@ -45,12 +43,10 @@ public class PointOfSpeech {
      * perform Viterbi decoding to find the best sequence of tags for a line (sequence of words)
      */
     public String[] viterbi(String[] sentence){
-        // initialize a map to track the current score
+        // initialize a map to track the current score of the "Winners"
         HashMap<String, Double> currScore = new HashMap<>();
-        // initialize a set to hold all possible current states associated with a word
-        HashSet<String> currStates = new HashSet<>();
         // initialize a list of maps tracking the previous state with the best current state
-        ArrayList<Map<String, State>> backTrack = new ArrayList<>();
+        ArrayList<Map<String, String>> backTrack = new ArrayList<>();
         // initialize a resulting path with one tag per word
         String[] res = new String[sentence.length];
 
@@ -58,25 +54,27 @@ public class PointOfSpeech {
 
         // For each unique word
         for(String currentWord : sentence){
-            // Loop through all the associated states
-            for(String currState : currStates){
-                // Create a new map that associates one state with its predecessor
-                HashMap<String, State> prevState = new HashMap<>();
-                // Create a new set to hold all possible transitions associated with the current state
-                Set<String> newStates = transitions.get(currState).keySet();
+            // Loop through all current possible states
+            for(String currState : currScore.keySet()){
+                // Create a map to track the previous state associated with the current state
+                HashMap<String, String> previous = new HashMap<>();
+                // Create a map to track the scores of all the potential new states
+                HashMap<String, Double> newScore = new HashMap<>();
                 // Loop through all possible transitions
-                for(String nextState : newStates){
+                for(String nextState : transitions.get(currState).keySet()) {
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
                     // If the current word is known to have current tag,
-                    if(observations.get(currentWord).containsKey(currState)) {
-                        nextScore += observations.get(currentWord).get(currState);
+                    if (observations.get(currentWord).containsKey(currState)) {
+                        nextScore += observations.get(currentWord).get(currState);  // Add the observation score
+                    } else {
+                        nextScore -= 100;       // Otherwise, assign unseen penalty of -100
                     }
-                    else {
-                        nextScore -= 10;
-                    }
-                    prevState.put(currState, new State(nextState, nextScore));
+                    // Assign this computed score to the associated state
+                    newScore.put(nextState, nextScore);
                 }
+                // Advance
+                currScore = newScore;
             }
             backTrack.add(prevState)
         }
