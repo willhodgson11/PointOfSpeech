@@ -4,14 +4,11 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 public class PointOfSpeech {
 
-    public HashMap<String, Integer> observations;               // Maps a given word with
+    public HashMap<String, HashMap<String, Double>> observations;               // Maps a given word with
     public HashMap<String, Map<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
     public String trainSentences;
     public String trainTags;
@@ -58,10 +55,13 @@ public class PointOfSpeech {
         currScore.put("#", 0.0);    // Let  "#" be the tag "before" the start of the sentence.
 
         for(String currentWord : sentence){
+            for(String tag : currStates){
+                // Create a new set to hold all possible transitions associated with the current state
+                Set<String> newStates = transitions.get(tag).keySet();
+                // If the current word is known to have tag
+                if(observations.get(currentWord).containsKey(tag)){
 
-            for(String state : currStates){
-                // For each possible transition associated with the current state
-                for(String transition : transitions.get(state).keySet()){
+
 
                 }
 
