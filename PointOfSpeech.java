@@ -8,25 +8,10 @@ import java.util.*;
 
 public class PointOfSpeech {
 
-    public HashMap<String, HashMap<String, Double>> observations;   // Maps a given word with all its associated tags and their normalized frequencies
+    public HashMap<String, HashMap<String, Double>> observations;   // Maps a given tag with all its associated words and their normalized frequencies
     public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
     public String trainSentences;
     public String trainTags;
-
-    /**
-     * class to hold the score and previous type of given state
-     */
-    public class State{
-
-        public double score;
-        public String prev;
-
-        public State(String prev, Double score){
-            this.score = score;
-            this.prev = prev;
-        }
-    }
-
 
     /**
      * Constructor
@@ -36,7 +21,8 @@ public class PointOfSpeech {
     public PointOfSpeech(String trainSentencesFile, String trainTagsFile){
         this.trainSentences = trainSentencesFile;
         this.trainTags = trainTagsFile;
-
+        this.observations = new HashMap<>();
+        this.transitions = new HashMap<>();
     }
 
     /**
@@ -66,8 +52,8 @@ public class PointOfSpeech {
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
                     // If the current word is known to have current tag,
-                    if (observations.get(currentWord).containsKey(currState)) {
-                        nextScore += observations.get(currentWord).get(currState);  // Add the observation score
+                    if (observations.get(currState).containsKey(currentWord)) {
+                        nextScore += observations.get(currState).get(currentWord);  // Add the observation score
                     } else {
                         nextScore -= 100;       // Otherwise, assign unseen penalty of -100
                     }
@@ -87,15 +73,13 @@ public class PointOfSpeech {
             backTrack.add(previous);
         }
 
-        // Set up placeholders for best state and score
+        // Set up placeholders for best state
         String bestState = null;
-        double bestScore;
         // Find the best state for the last word
         for(String state : currScore.keySet()){
             // If current state has a better score than previous best
-            if(bestState == null || currScore.get(state) > bestScore){
+            if(bestState == null || currScore.get(state) > currScore.get(bestState)){
                 bestState = state;                      // Record this new best state
-                bestScore =  currScore.get(state) ;     // Record this new best score
             }
         }
         // Add best state for last word at end of list
@@ -126,29 +110,31 @@ public class PointOfSpeech {
         while ((line = sentence.readLine()) != null) {
             String[] words = line.split("\\ ");                     // Create array with all words
             String[] tags = sentenceTags.readLine().split("\\ ");   // Create array with all tags
-            HashMap<String, Integer> wordFreq = new HashMap<>();          // Create a map with the total occurrences of each word
 
-            // Loop through each word in the sentence, recording the corresponding tag each time it occurs
-            for (int i = 0; i < words.length - 1; i++) {
-                // If the current word has not yet been seen before
-                if (!observations.containsKey(words[i])) {
-                    // Add that word to the frequency map
-                    wordFreq.put(words[i], 1);
-                    // Create a new map to track the frequency of the states for that word
-                    Map possibleTags = observations.get(words[i]);
-                    // If the current state has not been observed for this particular word
-                    if (possibleTags.containsKey(tags[i])) {
-                        // Initialize a count for the current tag
-                        possibleTags.put(words[i], 1.0);
-                    }
-                    // Otherwise, that state has already been observed. Increment the count by 1.
-                    else {
-                        possibleTags.put(words[i], (Double) possibleTags.get(tags[i]) + 1.0);
-                    }
+            // Loop through each tag in the sentence, recording the corresponding word each time it occurs
+            for (int i = 0; i < tags.length - 1; i++) {
+                // If the current tag has not yet been seen before
+                if (!observations.containsKey(tags[i])) {
+                    // Create a new map to track the frequency of the words for that state
+                    HashMap<String, Double> possibleWords = new HashMap<>();
+                    // Initialize a count for the current word
+                    possibleWords.put(words[i], 1.0);
+                    // Assign that count to the corresponding state
+                    observations.put(tags[i], possibleWords);
                 }
-                // Increment the total frequency of that word by one
-                else {
-                    wordFreq.put(words[i], wordFreq.get(words[i] + 1));
+                // Otherwise, this state has previously been encountered
+                else{
+                    // Create a map to track the frequency of words for this state
+                    HashMap<String, Double> possibleWords = observations.get(tags[i]);
+                    // If the current word has not been observed for this particular state
+                    if (!possibleWords.containsKey(words[i])) {
+                        // Initialize a count for the current word
+                        possibleWords.put(words[i], 1.0);
+                    }
+                    // Otherwise, that word has already been observed. Increment the count by 1.
+                    else {
+                        possibleWords.put(words[i], (Double) possibleWords.get(words[i]) + 1.0);
+                    }
                 }
                 // loop through each tag, recording the frequency at which each tag transitions to another
                 if (i < tags.length - 1) {
@@ -181,20 +167,45 @@ public class PointOfSpeech {
         sentenceTags.close();
 
         //Normalize the observations
+        for (String tag : observations.keySet()) {
+            HashMap<String, Double> wordFreq = observations.get(tag);
+            // Count all occurrences of a given tag
+            double tagCount = countKeys(wordFreq);
+            // Normalize each frequency by dividing by the total number of transitions
+            for (String word : wordFreq.keySet()) {
+                wordFreq.put(word, Math.log(wordFreq.get(word) / tagCount));
+            }
+        }
 
 
         // Normalize the transitions
-        for(String transition: transitions.keySet()){
-            int transitionCount = 0;
+        for (String transition : transitions.keySet()) {
             HashMap<String, Double> nextStates = transitions.get(transition);
             // Count all occurrences of a transition from the current state
-            for(String nextState : nextStates.keySet()){
-                transitionCount += nextStates.get(nextState);
-            }
+            double transitionCount = countKeys(nextStates);
             // Normalize each frequency by dividing by the total number of transitions
-            for(String nextState : nextStates.keySet()){
-                nextStates.put(nextState, Math.log(nextStates.get(nextState)/transitionCount));
+            for (String nextState : nextStates.keySet()) {
+                nextStates.put(nextState, Math.log(nextStates.get(nextState) / transitionCount));
             }
+            transitions.put(transition, nextStates);
+        }
+
+        System.out.println(transitions);
+    }
+
+    /**
+     * Helper function to count the total value of keys in a hashmap
+     * @param map Map of strings (words, tags) to doubles (frequency)
+     * @return
+     */
+    public double countKeys(HashMap<String, Double> map){
+        int keyCount = 0;
+
+        // Count all occurrences of a given key
+        for (String key : map.keySet()) {
+            keyCount += map.get(key);
+        }
+        return keyCount;
     }
 
 
@@ -202,7 +213,6 @@ public class PointOfSpeech {
      * console-based test method to give the tags from an input line.
      */
     public void testUserInput(){
-
     }
 
     /**
@@ -212,7 +222,8 @@ public class PointOfSpeech {
 
     }
 
-    public static void main(String[] args) {
-        PointOfSpeech test0 = new PointOfSpeech("simple-train-sentences.txt", "simple-train-tags.txt")
+    public static void main(String[] args) throws IOException {
+        PointOfSpeech test0 = new PointOfSpeech("Texts/simple-train-sentences.txt", "Texts/simple-train-tags.txt");
+        test0.trainModel();
     }
 }
