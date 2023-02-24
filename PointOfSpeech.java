@@ -41,6 +41,7 @@ public class PointOfSpeech {
 
     /**
      * perform Viterbi decoding to find the best sequence of tags for a line (sequence of words)
+     * @param sentence
      */
     public ArrayList<String> viterbi(String[] sentence){
         // initialize a map to track the current score of the "Winners"
@@ -104,7 +105,7 @@ public class PointOfSpeech {
             Map temp = backTrack.get(i);                    // Get the map for the current word
             String prev = (String) temp.get(bestState);     // Get the previous state
             res.add(i-1, prev);                       // Insert the previous state
-            bestState = prev;
+            bestState = prev;                               // Advance
             i--;
         }
 
@@ -117,8 +118,43 @@ public class PointOfSpeech {
      */
     public void trainModel() throws IOException {
         BufferedReader sentence = new BufferedReader(new FileReader(trainSentences));
-        BufferedReader tags = new BufferedReader(new FileReader(trainTags));
+        BufferedReader sentenceTags = new BufferedReader(new FileReader(trainTags));
+
+
+        String line;
+        // Read each line in both files and get the contents (words and tags)
+        while ((line = sentence.readLine()) != null) {
+            String[] words = line.split("\\ ");                     // Create array with all words
+            String[] tags = sentenceTags.readLine().split("\\ ");   // Create array with all tags
+            HashMap<String, Integer> wordFreq = new HashMap<>();          // Create a map with the total occurrences of each word
+
+            // Loop through each word in the sentence, recording the corresponding tag each time it occurs
+            for (int i = 0; i < words.length - 1; i++) {
+                // If the current word has not yet been seen before
+                if (!observations.containsKey(words[i])) {
+                    // Add that word to the frequency map
+                    wordFreq.put(words[i], 1);
+                    // Create a new map to track the frequency of the states for that word
+                    Map possibleTags = observations.get(words[i]);
+                    // If the current state has not been observed for this particular word
+                    if (possibleTags.containsKey(tags[i])) {
+                        // Initialize a count for the current tag
+                        possibleTags.put(words[i], 1.0);
+                    }
+                    // Otherwise, that state has already been observed. Increment the count by 1.
+                    else {
+                        possibleTags.put(words[i], (Double) possibleTags.get(tags[i]) + 1.0);
+                    }
+                }
+                // Increment the total frequency of that word by one
+                else {
+                    wordFreq.put(words[i], wordFreq.get(words[i] + 1));
+                }
+
+            }
+        }
     }
+
 
     /**
      * console-based test method to give the tags from an input line.
