@@ -151,31 +151,50 @@ public class PointOfSpeech {
                     wordFreq.put(words[i], wordFreq.get(words[i] + 1));
                 }
                 // loop through each tag, recording the frequency at which each tag transitions to another
-                if(i< tags.length-1){
+                if (i < tags.length - 1) {
                     // If the current tag has not been observed before
-                    if(!transitions.containsKey(tags[i])){
+                    if (!transitions.containsKey(tags[i])) {
                         // Create a new map to document the frequency of all transitions from the current state to all possible states
                         HashMap<String, Double> transitionFreq = new HashMap<>();
                         // Set the frequency of the transition from the current state to the next to 1
-                        transitionFreq.put(tags[i+1], 1.0);
+                        transitionFreq.put(tags[i + 1], 1.0);
                         // Add the transitions frequency map to transitions, associated with the current tag
                         transitions.put(tags[i], transitionFreq);
                     }
                     // If the current tag has been observed
                     else {
                         // If the transition to the next tag has not yet been observed
-                        if (!transitions.get(tags[i]).containsKey(tags[i+1])){
+                        if (!transitions.get(tags[i]).containsKey(tags[i + 1])) {
                             // Record the first occurrence of that transition
-                            transitions.get(tags[i]).put(tags[i+1], 1.0);
+                            transitions.get(tags[i]).put(tags[i + 1], 1.0);
                         }
                         // If the transition to the next tag has been observed
                         else {
                             // Increment the frequency of the transition from the current state to the next state by 1
                             transitions.get(tags[i]).put(tags[i + 1], transitions.get(tags[i]).get(tags[i + 1]));
                         }
+                    }
                 }
             }
         }
+        sentence.close();
+        sentenceTags.close();
+
+        //Normalize the observations
+
+
+        // Normalize the transitions
+        for(String transition: transitions.keySet()){
+            int transitionCount = 0;
+            HashMap<String, Double> nextStates = transitions.get(transition);
+            // Count all occurrences of a transition from the current state
+            for(String nextState : nextStates.keySet()){
+                transitionCount += nextStates.get(nextState);
+            }
+            // Normalize each frequency by dividing by the total number of transitions
+            for(String nextState : nextStates.keySet()){
+                nextStates.put(nextState, Math.log(nextStates.get(nextState)/transitionCount));
+            }
     }
 
 
