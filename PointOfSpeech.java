@@ -1,26 +1,28 @@
-import org.opencv.core.Point;
-
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.SQLOutput;
 import java.util.*;
 
 public class PointOfSpeech {
     //TODO account for periods, punctuation within sentences and lines with only those
     public HashMap<String, HashMap<String, Double>> observations;   // Maps a given tag with all its associated words and their normalized frequencies
     public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
-    public String trainSentences;
-    public String trainTags;
+    public String trainSentencesFile;
+    public String trainTagsFile;
+    public String testTagsFile;
+    public String testSentencesFile;
 
     /**
      * Constructor
      * @param trainSentencesFile
      * @param trainTagsFile
      */
-    public PointOfSpeech(String trainSentencesFile, String trainTagsFile){
-        this.trainSentences = trainSentencesFile;
-        this.trainTags = trainTagsFile;
+    public PointOfSpeech(String trainSentencesFile, String trainTagsFile, String testSentencesFile, String testTagsFile){
+        this.trainSentencesFile = trainSentencesFile;
+        this.trainTagsFile = trainTagsFile;
+        this.testTagsFile = testTagsFile;
+        this.testSentencesFile = testSentencesFile;
         this.observations = new HashMap<>();
         this.transitions = new HashMap<>();
     }
@@ -41,6 +43,7 @@ public class PointOfSpeech {
 
         // For each unique word
         for(String currentWord : sentence){
+            res.add("empty");
             // Create a map to track the previous state associated with a given state
             HashMap<String, String> previous = new HashMap<>();
             // Loop through all current possible states
@@ -51,6 +54,8 @@ public class PointOfSpeech {
                 for(String nextState : transitions.get(currState).keySet()) {
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
+                    // If there is no observation for the current state (i.e. state = # ), skip current iteration
+                    if(observations.get(currState) == null){continue;}
                     // If the current word is known to have current tag,
                     if (observations.get(currState).containsKey(currentWord)) {
                         nextScore += observations.get(currState).get(currentWord);  // Add the observation score
@@ -61,6 +66,7 @@ public class PointOfSpeech {
                     if(!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)){
                         newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
                     }
+                    System.out.println(currScore);
                 }
                 // Advance
                 currScore = newScore;
@@ -69,9 +75,11 @@ public class PointOfSpeech {
                 for(String state : currScore.keySet()) {
                     previous.put(prevState, state);
                 }
+                System.out.println(previous);
             }
             backTrack.add(previous);
         }
+        System.out.println(backTrack);
 
         // Set up placeholders for best state
         String bestState = null;
@@ -83,7 +91,7 @@ public class PointOfSpeech {
             }
         }
         // Add best state for last word at end of list
-        res.add(backTrack.size()-1, bestState);
+        res.set(backTrack.size()-1, bestState);
         // Build the resulting path
         for(int i = backTrack.size()-1; i > 0; i--){
             Map temp = backTrack.get(i);                    // Get the map for the current word
@@ -101,8 +109,8 @@ public class PointOfSpeech {
      * (sentence and tags) from a pair of training files.
      */
     public void trainModel() throws IOException {
-        BufferedReader sentence = new BufferedReader(new FileReader(trainSentences));
-        BufferedReader sentenceTags = new BufferedReader(new FileReader(trainTags));
+        BufferedReader sentence = new BufferedReader(new FileReader(trainSentencesFile));
+        BufferedReader sentenceTags = new BufferedReader(new FileReader(trainTagsFile));
 
         HashMap<String, Double> startMap = new HashMap<>();     // Record all states that follow the start, i.e. first states
         transitions.put("#", startMap);                         // Add the empty starting state map to transitions
@@ -176,16 +184,10 @@ public class PointOfSpeech {
         sentence.close();
         sentenceTags.close();
 
-        System.out.println(transitions);
-        System.out.println(observations);
-
         // Normalize the transitions, dividing each frequency by a count of all occurrences of that transition from the current state
         normalize(transitions);
         //Normalize the observations, dividing each tag->word frequency by the total occurrences of the associated tag
         normalize(observations);
-
-        System.out.println(transitions);
-        System.out.println(observations);
     }
 
     /**
@@ -233,19 +235,36 @@ public class PointOfSpeech {
     /**
      * file-based test method to evaluate the performance on a pair of test files
      */
-    public void testFile(String filename) throws IOException {
-        BufferedReader testFile = new BufferedReader(new FileReader(filename));
+    public void testModel() throws IOException {
+        BufferedReader testTags = new BufferedReader(new FileReader(testTagsFile));
+        BufferedReader testWords = new BufferedReader(new FileReader(testSentencesFile));
         String line;
-        while((line = testFile.readLine()) != null){
+        int incorrect = 0;
+        int correct = 0;
+        while((line = testWords.readLine()) != null){
             String[] sentence = line.toLowerCase().split("\\ ");
-
+            String[] actualTags = testTags.readLine().split("\\ ");
+            ArrayList<String> calculatedTags = viterbi(sentence);
+            for(int i=0; i<calculatedTags.size()-1; i++){
+                if(!actualTags[i].equals(calculatedTags.get(i))){
+                    incorrect++;
+                }
+                else{
+                    correct++;
+                }
+            }
         }
+        System.out.println("Correct Tags: " + correct);
+        System.out.println("Incorrect Tags: " + incorrect);
 
     }
 
     public static void main(String[] args) throws IOException {
-        PointOfSpeech test0 = new PointOfSpeech("Texts/simple-train-sentences.txt", "Texts/simple-train-tags.txt");
+        PointOfSpeech test0 = new PointOfSpeech("Texts/simple-train-sentences.txt",
+                "Texts/simple-train-tags.txt", "Texts/simple-test-sentences.txt",
+                "Texts/simple-test-tags.txt");
         test0.trainModel();
+        test0.testModel();
 
     }
 }
