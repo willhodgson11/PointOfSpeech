@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.util.*;
 
 public class PointOfSpeech {
-
+    //TODO account for periods, punctuation within sentences and lines with only those
     public HashMap<String, HashMap<String, Double>> observations;   // Maps a given tag with all its associated words and their normalized frequencies
     public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
     public String trainSentences;
@@ -104,13 +104,23 @@ public class PointOfSpeech {
         BufferedReader sentence = new BufferedReader(new FileReader(trainSentences));
         BufferedReader sentenceTags = new BufferedReader(new FileReader(trainTags));
 
+        HashMap<String, Double> startMap = new HashMap<>();     // Record all states that follow the start, i.e. first states
+        transitions.put("#", startMap);                         // Add the empty starting state map to transitions
 
         String line;
         // Read each line in both files and get the contents (words and tags)
         while ((line = sentence.readLine()) != null) {
-            String[] words = line.split("\\ ");                     // Create array with all words
+            String[] words = line.toLowerCase().split("\\ ");                     // Create array with all words
             String[] tags = sentenceTags.readLine().split("\\ ");   // Create array with all tags
 
+            // If the first state has not been observed yet
+            if(!startMap.containsKey(tags[0])){
+                startMap.put(tags[0], 1.0);    // Initialize a count for that first transition
+            }
+            // Otherwise increment the count for that transition
+            else{
+                startMap.put(tags[0], startMap.get(tags[0])+1);
+            }
             // Loop through each tag in the sentence, recording the corresponding word each time it occurs
             for (int i = 0; i < tags.length - 1; i++) {
                 // If the current tag has not yet been seen before
@@ -157,7 +167,7 @@ public class PointOfSpeech {
                         // If the transition to the next tag has been observed
                         else {
                             // Increment the frequency of the transition from the current state to the next state by 1
-                            transitions.get(tags[i]).put(tags[i + 1], transitions.get(tags[i]).get(tags[i + 1]));
+                            transitions.get(tags[i]).put(tags[i + 1], transitions.get(tags[i]).get(tags[i + 1])+1);
                         }
                     }
                 }
@@ -166,31 +176,36 @@ public class PointOfSpeech {
         sentence.close();
         sentenceTags.close();
 
-        //Normalize the observations
-        for (String tag : observations.keySet()) {
-            HashMap<String, Double> wordFreq = observations.get(tag);
-            // Count all occurrences of a given tag
-            double tagCount = countKeys(wordFreq);
-            // Normalize each frequency by dividing by the total number of transitions
-            for (String word : wordFreq.keySet()) {
-                wordFreq.put(word, Math.log(wordFreq.get(word) / tagCount));
-            }
-        }
+        System.out.println(transitions);
+        System.out.println(observations);
 
-
-        // Normalize the transitions
-        for (String transition : transitions.keySet()) {
-            HashMap<String, Double> nextStates = transitions.get(transition);
-            // Count all occurrences of a transition from the current state
-            double transitionCount = countKeys(nextStates);
-            // Normalize each frequency by dividing by the total number of transitions
-            for (String nextState : nextStates.keySet()) {
-                nextStates.put(nextState, Math.log(nextStates.get(nextState) / transitionCount));
-            }
-            transitions.put(transition, nextStates);
-        }
+        // Normalize the transitions, dividing each frequency by a count of all occurrences of that transition from the current state
+        normalize(transitions);
+        //Normalize the observations, dividing each tag->word frequency by the total occurrences of the associated tag
+        normalize(observations);
 
         System.out.println(transitions);
+        System.out.println(observations);
+    }
+
+    /**
+     * Helper function to normalize the frequency of all key values in a map.
+     * get the value associated with each key for a given state and divide by the
+     * sum the values of all keys (associated words or next states) for a that state.
+     * @param map A filled map tracking all tags, their associated keys, and the value
+     *            of those keys
+     */
+    private void normalize(HashMap<String, HashMap<String, Double>> map){
+        // For each state
+        for (String key : map.keySet()) {
+            HashMap<String, Double> keyMap = map.get(key);
+            // Count all occurrences of a transition from the current state
+            double keyCount = countKeys(keyMap);
+            // Normalize each frequency by dividing by the total number of transitions
+            for (String nextState : keyMap.keySet()) {
+                keyMap.put(nextState, Math.log(keyMap.get(nextState) / keyCount));
+            }
+        }
     }
 
     /**
@@ -218,12 +233,19 @@ public class PointOfSpeech {
     /**
      * file-based test method to evaluate the performance on a pair of test files
      */
-    public void testFile(){
+    public void testFile(String filename) throws IOException {
+        BufferedReader testFile = new BufferedReader(new FileReader(filename));
+        String line;
+        while((line = testFile.readLine()) != null){
+            String[] sentence = line.toLowerCase().split("\\ ");
+
+        }
 
     }
 
     public static void main(String[] args) throws IOException {
         PointOfSpeech test0 = new PointOfSpeech("Texts/simple-train-sentences.txt", "Texts/simple-train-tags.txt");
         test0.trainModel();
+
     }
 }
