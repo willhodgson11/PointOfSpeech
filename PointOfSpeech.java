@@ -43,7 +43,6 @@ public class PointOfSpeech {
 
         // For each unique word
         for(String currentWord : sentence){
-            res.add("empty");
             // Create a map to track the previous state associated with a given state
             HashMap<String, String> previous = new HashMap<>();
             // Loop through all current possible states
@@ -66,8 +65,8 @@ public class PointOfSpeech {
                     if(!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)){
                         newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
                     }
-                    System.out.println(currScore);
-                }
+                }                    System.out.println("sboboy");
+
                 // Advance
                 currScore = newScore;
                 String prevState = currState;       // For ease of understanding
@@ -230,6 +229,14 @@ public class PointOfSpeech {
      * console-based test method to give the tags from an input line.
      */
     public void testUserInput(){
+        // Create a scanner to receive input
+        Scanner input = new Scanner(System.in);
+        System.out.println("Viterbi > ");
+        String line = input.nextLine();
+        String[] words = line.toLowerCase().split("\\ ");
+        String[] tags = viterbi(words).toArray(new String[0]);
+        System.out.println("tag" +tags);
+
     }
 
     /**
@@ -264,6 +271,7 @@ public class PointOfSpeech {
                 "Texts/simple-train-tags.txt", "Texts/simple-test-sentences.txt",
                 "Texts/simple-test-tags.txt");
         test0.trainModel();
+        //test0.testUserInput();
         test0.testModel();
 
     }
