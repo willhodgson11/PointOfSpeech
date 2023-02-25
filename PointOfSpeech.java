@@ -46,15 +46,17 @@ public class PointOfSpeech {
             // Create a map to track the previous state associated with a given state
             HashMap<String, String> previous = new HashMap<>();
             // Loop through all current possible states
-            for(String currState : currScore.keySet()){
+            for(String currState : currScore.keySet()) {
                 // Create a map to track the scores of all the potential new states
                 HashMap<String, Double> newScore = new HashMap<>();
                 // Loop through all possible transitions
-                for(String nextState : transitions.get(currState).keySet()) {
+                for (String nextState : transitions.get(currState).keySet()) {
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
                     // If there is no observation for the current state (i.e. state = # ), skip current iteration
-                    if(observations.get(currState) == null){continue;}
+                    if (observations.get(currState) == null) {
+                        continue;
+                    }
                     // If the current word is known to have current tag,
                     if (observations.get(currState).containsKey(currentWord)) {
                         nextScore += observations.get(currState).get(currentWord);  // Add the observation score
@@ -62,21 +64,21 @@ public class PointOfSpeech {
                         nextScore -= 100;       // Otherwise, assign unseen penalty of -100
                     }
                     // If the current state does not have an associated score, or if the new calculated score is better than the existing one,
-                    if(!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)){
+                    if (!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)) {
                         newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
                     }
-                }                    System.out.println("sboboy");
-
+                }
                 // Advance
                 currScore = newScore;
                 String prevState = currState;       // For ease of understanding
                 // Add each winning state to a map with its predecessor
-                for(String state : currScore.keySet()) {
+                for (String state : currScore.keySet()) {
                     previous.put(prevState, state);
                 }
                 System.out.println(previous);
             }
             backTrack.add(previous);
+            System.out.println(previous);
         }
         System.out.println(backTrack);
 
@@ -84,22 +86,23 @@ public class PointOfSpeech {
         String bestState = null;
         // Find the best state for the last word
         for(String state : currScore.keySet()){
+            System.out.println("state" +state);
             // If current state has a better score than previous best
             if(bestState == null || currScore.get(state) > currScore.get(bestState)){
                 bestState = state;                      // Record this new best state
             }
         }
         // Add best state for last word at end of list
-        res.set(backTrack.size()-1, bestState);
+        res.add(bestState);
         // Build the resulting path
-        for(int i = backTrack.size()-1; i > 0; i--){
+        for(int i = 0; i< backTrack.size()-1; i--){
             Map temp = backTrack.get(i);                    // Get the map for the current word
             String prev = (String) temp.get(bestState);     // Get the previous state
-            res.add(i-1, prev);                       // Insert the previous state
+            //res.add(prev);                                 // Insert the previous state
             bestState = prev;                               // Advance
-            i--;
+            i++;
         }
-
+        System.out.println(res);
         return res;
     }
 
