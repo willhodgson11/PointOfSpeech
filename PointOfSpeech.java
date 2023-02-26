@@ -1,17 +1,16 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.sql.SQLOutput;
 import java.util.*;
 
 public class PointOfSpeech {
-    //TODO account for periods, punctuation within sentences and lines with only those
     public HashMap<String, HashMap<String, Double>> observations;   // Maps a given tag with all its associated words and their normalized frequencies
     public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
     public String trainSentencesFile;
     public String trainTagsFile;
     public String testTagsFile;
     public String testSentencesFile;
+    public int unseen = 10;
 
     /**
      * Constructor
@@ -29,7 +28,7 @@ public class PointOfSpeech {
 
     /**
      * perform Viterbi decoding to find the best sequence of tags for a line (sequence of words)
-     * @param sentence
+     * @param sentence list of words split by whitespace. Periods and punctuation should be their own 'word'
      */
     public ArrayList<String> viterbi(String[] sentence){
         // initialize a map to track the current score of the "Winners"
@@ -51,8 +50,6 @@ public class PointOfSpeech {
                 if (transitions.get(currState) == null) {continue;}
                 // Loop through all possible transitions
                 for (String nextState : transitions.get(currState).keySet()) {
-                    // TODO ? If the transition from the current state to the next hasn't been encountered, add it to the list of possible states
-                    //if (!transitions.get(currState).keySet().contains(nextState)) {transitions.get(currState).keySet().add(nextState);}
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
                     // If there is no observation for the current state, skip current iteration
@@ -61,7 +58,7 @@ public class PointOfSpeech {
                         if (observations.get(nextState).containsKey(currentWord)) {
                             nextScore += observations.get(nextState).get(currentWord);  // Add the observation score
                         } else {
-                            nextScore -= 100;       // Otherwise, assign unseen penalty of -100
+                            nextScore -= unseen;       // Otherwise, assign unseen penalty of -100
                         }
                     }
                     // If the current state does not have an associated score, or if the new calculated score is better than the existing one,
@@ -120,8 +117,11 @@ public class PointOfSpeech {
         String line;
         // Read each line in both files and get the contents (words and tags)
         while ((line = sentence.readLine()) != null) {
-            String[] words = line.toLowerCase().replace(".", "").split("\\ ");                     // Create array with all words
-            String[] tags = sentenceTags.readLine().replace(".", "").split("\\ ");   // Create array with all tags
+            String[] words = line.toLowerCase().split("\\s+");                     // Create array with all words
+            String[] tags = sentenceTags.readLine().split("\\s+");   // Create array with all tags
+
+            // If a blank line is encountered, skip this iteration
+            if(tags.length ==0 || words.length == 0) continue;
 
             // If the first state has not been observed yet
             if(!startMap.containsKey(tags[0])){
@@ -207,7 +207,7 @@ public class PointOfSpeech {
             double keyCount = countKeys(keyMap);
             // Normalize each frequency by dividing by the total number of transitions
             for (String nextState : keyMap.keySet()) {
-                keyMap.put(nextState, Math.log(keyMap.get(nextState) / keyCount));
+                keyMap.put(nextState, Math.log10(keyMap.get(nextState) / keyCount));
             }
         }
     }
@@ -238,8 +238,8 @@ public class PointOfSpeech {
         String line = input.nextLine();
         // Incorporate simple quit command - exits program if q key entered
         if(!line.equals("q")) {
-            // Get user input as a line, strip periods, turn to lowercase
-            String[] words = line.toLowerCase().replace(".", "").split("\\ ");
+            // Get user input as a line and turn to lowercase
+            String[] words = line.toLowerCase().split("\\s+");
             // Calculate the tags for that sentence
             String[] tags = viterbi(words).toArray(new String[0]);
             System.out.println("Tags: " + String.join(" ", tags));
@@ -257,10 +257,10 @@ public class PointOfSpeech {
         int incorrect = 0;
         int correct = 0;
         while((line = testWords.readLine()) != null){
-            // Create a list of words, with periods removed, converted to lowercase, and split by whitespace
-            String[] sentence = line.toLowerCase().replace(".", "").split("\\ ");
-            // Create a list of tags, with periods removed and split by whitespace
-            String[] tempTags = testTags.readLine().replace(".", "").split("\\ ");
+            // Create a list of words, converted to lowercase and split by whitespace
+            String[] sentence = line.toLowerCase().split("\\s+");
+            // Create a list of tags split by whitespace
+            String[] tempTags = testTags.readLine().split("\\s+");
             // Convert tags sentence to a string so we can add the # start state
             List<String> tagsList = new LinkedList<String>(Arrays.asList(tempTags));
             tagsList.add(0, "#");
@@ -282,12 +282,77 @@ public class PointOfSpeech {
 
     }
 
+
+    public void hardCodeTest(){
+
+    }
+    /**
+     * Driver method, for ease of toggling between different sets of test and train files
+     * @param testName first word in file names
+     * @throws IOException
+     */
+    static void execute(String testName) throws IOException {
+        if(testName.equals("Brown")){
+            PointOfSpeech testBrown = new PointOfSpeech("Texts/brown-train-sentences.txt",
+                    "Texts/brown-train-tags.txt", "Texts/brown-test-sentences.txt",
+                    "Texts/brown-test-tags.txt");
+            System.out.println("Test files: Brown, Train files: Brown");
+            testBrown.trainModel();
+            testBrown.testModel();
+            testBrown.testUserInput();
+        }
+        if (testName.equals("Simple")){
+            PointOfSpeech testSimple = new PointOfSpeech("Texts/simple-train-sentences.txt",
+                    "Texts/simple-train-tags.txt", "Texts/simple-test-sentences.txt",
+                    "Texts/simple-test-tags.txt");
+            System.out.println("Test files: Simple, Train files: Simple");
+            testSimple.trainModel();
+            testSimple.testModel();
+            testSimple.testUserInput();
+        }
+        if (testName.equals("hardCodeViterbi")) {
+            PointOfSpeech testViterbi = new PointOfSpeech(null, null, null, null);
+            System.out.println("Hardcoded test from PD7");
+
+            // Hardcode PD7 transition map. Rather than change compare in viterbi method, scores are all negative
+            testViterbi.unseen = 10;
+            // This way the lowest number/highest frequency still wins
+            HashMap<String, Double> NP = new HashMap<>(Map.of("chase",10.0));
+            HashMap<String, Double> CNJ = new HashMap<>(Map.of("and",10.0));
+            HashMap<String, Double> V = new HashMap<>(Map.of("get",1.0, "chase", 3.0, "watch", 6.0));
+            HashMap<String, Double> N = new HashMap<>(Map.of("cat", 4.0, "dog", 4.0, "watch", 2.0));
+            testViterbi.observations.put("NP", NP);
+            testViterbi.observations.put("CNJ", CNJ);
+            testViterbi.observations.put("V", V);
+            testViterbi.observations.put("N", N);
+
+            // Hardcode PD7 Observations
+            HashMap<String, Double> startobs = new HashMap<>(Map.of("NP", 3.0, "N", 7.0));
+            HashMap<String, Double> NPobs = new HashMap<>(Map.of("V", 8.0, "CNJ", 2.0));
+            HashMap<String, Double> Vobs = new HashMap<>(Map.of("NP", 4.0, "CNJ", 2.0, "N", 4.0));
+            HashMap<String, Double> Nobs = new HashMap<>(Map.of("CNJ", 2.0, "V", 8.0));
+            HashMap<String, Double> CNJobs = new HashMap<>(Map.of("NP", 2.0, "N", 4.0, "V", 4.0));
+            testViterbi.transitions.put("#", startobs);
+            testViterbi.transitions.put("NP", NPobs);
+            testViterbi.transitions.put("CNJ", CNJobs);
+            testViterbi.transitions.put("V", Vobs);
+            testViterbi.transitions.put("N", Nobs);
+
+            System.out.println(testViterbi.viterbi(new String[]{"chase", "watch", "dog","chase"," watch"}));
+
+        }
+    }
+
+    /**
+     * Main method to test
+     * @param args
+     * @throws IOException
+     */
     public static void main(String[] args) throws IOException {
-        PointOfSpeech test0 = new PointOfSpeech("Texts/simple-train-sentences.txt",
-                "Texts/simple-train-tags.txt", "Texts/simple-test-sentences.txt",
-                "Texts/simple-test-tags.txt");
-        test0.trainModel();
-        test0.testModel();
-        test0.testUserInput();
+        execute("hardCodeViterbi");
+        //execute("Brown");
+        //execute("Simple");
+
+
     }
 }
