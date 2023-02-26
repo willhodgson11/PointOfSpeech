@@ -38,74 +38,71 @@ public class PointOfSpeech {
         ArrayList<Map<String, String>> backTrack = new ArrayList<>();
         // initialize a resulting path with one tag per word
         ArrayList<String> res = new ArrayList<>();
-
         currScore.put("#", 0.0);    // Let "#" be the tag "before" the start of the sentence.
-
         // For each unique word
         for(String currentWord : sentence){
-            System.out.println("Current word: "+currentWord);
             // Create a map to track the previous state associated with a given state
             HashMap<String, String> previous = new HashMap<>();
             // Create a map to track the scores of all the potential new states
             HashMap<String, Double> newScore = new HashMap<>();
             // Loop through all current possible states
             for(String currState : currScore.keySet()) {
-                System.out.println("Current state: "+ currState);
                 // if the transition score map of the current state is null, skip this iteration
                 if (transitions.get(currState) == null) {continue;}
                 // Loop through all possible transitions
                 for (String nextState : transitions.get(currState).keySet()) {
-                    // If the transition from the current state to the next hasn't been encountered, add it to the list of possible states
+                    // TODO ? If the transition from the current state to the next hasn't been encountered, add it to the list of possible states
                     //if (!transitions.get(currState).keySet().contains(nextState)) {transitions.get(currState).keySet().add(nextState);}
-                    System.out.println("Next state " + nextState + " has score " + transitions.get(currState).get(nextState));
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
-                    // If the current word is known to have current tag,
-                    if (observations.get(nextState).containsKey(currentWord)) {
-                        nextScore += observations.get(nextState).get(currentWord);  // Add the observation score
-                    } else {
-                        nextScore -= 100;       // Otherwise, assign unseen penalty of -100
+                    // If there is no observation for the current state, skip current iteration
+                    if(observations.get(nextState)!=null) {
+                        // If the current word is known to have current tag,
+                        if (observations.get(nextState).containsKey(currentWord)) {
+                            nextScore += observations.get(nextState).get(currentWord);  // Add the observation score
+                        } else {
+                            nextScore -= 100;       // Otherwise, assign unseen penalty of -100
+                        }
                     }
                     // If the current state does not have an associated score, or if the new calculated score is better than the existing one,
                     if (!newScore.containsKey(nextState) || nextScore > newScore.get(nextState)) {
                         newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
+                        previous.put(nextState, currState);       // Add each winning state to a map with its predecessor
                     }
-                }
-                String prevState = currState;       // For ease of understanding
-                // Add each winning state to a map with its predecessor
-                for (String state : newScore.keySet()) {
-                    previous.put(state, prevState);
                 }
             }
             // Advance
-            System.out.println(currentWord + ": " +currScore+ newScore);
             currScore = newScore;
             backTrack.add(previous);
-            System.out.println("backMap: " + previous);
         }
-        System.out.println(backTrack);
 
         // Set up placeholders for best state
         String bestState = null;
         // Find the best state for the last word
         for(String state : currScore.keySet()){
-            System.out.println("state" +state);
             // If current state has a better score than previous best
             if(bestState == null || currScore.get(state) > currScore.get(bestState)){
                 bestState = state;                      // Record this new best state
             }
         }
+        // Create an arraylist to temporarily hold the (reversed) backtrack
+        ArrayList<String> backwards = new ArrayList<>();
         // Add best state for last word at end of list
-        res.add(bestState);
+        backwards.add(bestState);
         // Build the resulting path
-        for(int i = 0; i< backTrack.size()-1; i--){
-            Map temp = backTrack.get(i);                    // Get the map for the current word
+        int end = backTrack.size()-1;
+        while(!backTrack.isEmpty()){
+            Map temp = backTrack.remove(end);               // Get the map for the current word
             String prev = (String) temp.get(bestState);     // Get the previous state
-            //res.add(prev);                                 // Insert the previous state
+            backwards.add(prev);                            // Insert the previous state
             bestState = prev;                               // Advance
-            i++;
+            end--;
         }
-        System.out.println(res);
+        // Because the previous map associates a state to its predecessor, the backtrack is, well backwards.
+        // Flip the backtrack
+        while(!backwards.isEmpty()){
+            res.add(backwards.remove(backwards.size()-1));
+        }
         return res;
     }
 
@@ -123,8 +120,8 @@ public class PointOfSpeech {
         String line;
         // Read each line in both files and get the contents (words and tags)
         while ((line = sentence.readLine()) != null) {
-            String[] words = line.toLowerCase().split("\\ ");                     // Create array with all words
-            String[] tags = sentenceTags.readLine().split("\\ ");   // Create array with all tags
+            String[] words = line.toLowerCase().replace(".", "").split("\\ ");                     // Create array with all words
+            String[] tags = sentenceTags.readLine().replace(".", "").split("\\ ");   // Create array with all tags
 
             // If the first state has not been observed yet
             if(!startMap.containsKey(tags[0])){
@@ -239,10 +236,15 @@ public class PointOfSpeech {
         Scanner input = new Scanner(System.in);
         System.out.println("Viterbi > ");
         String line = input.nextLine();
-        String[] words = line.toLowerCase().replace(".", "").split("\\ ");
-        String[] tags = viterbi(words).toArray(new String[0]);
-        System.out.println("tag" +tags);
-
+        // Incorporate simple quit command - exits program if q key entered
+        if(!line.equals("q")) {
+            // Get user input as a line, strip periods, turn to lowercase
+            String[] words = line.toLowerCase().replace(".", "").split("\\ ");
+            // Calculate the tags for that sentence
+            String[] tags = viterbi(words).toArray(new String[0]);
+            System.out.println("Tags: " + String.join(" ", tags));
+            testUserInput();
+        }
     }
 
     /**
@@ -255,11 +257,18 @@ public class PointOfSpeech {
         int incorrect = 0;
         int correct = 0;
         while((line = testWords.readLine()) != null){
+            // Create a list of words, with periods removed, converted to lowercase, and split by whitespace
             String[] sentence = line.toLowerCase().replace(".", "").split("\\ ");
-            String[] actualTags = testTags.readLine().replace(".", "").split("\\ ");
+            // Create a list of tags, with periods removed and split by whitespace
+            String[] tempTags = testTags.readLine().replace(".", "").split("\\ ");
+            // Convert tags sentence to a string so we can add the # start state
+            List<String> tagsList = new LinkedList<String>(Arrays.asList(tempTags));
+            tagsList.add(0, "#");
+            // Calculate the model-generated tags
             ArrayList<String> calculatedTags = viterbi(sentence);
+            // Loop through each calculated tag, checking against the actual tag. Keep track of the number correct!
             for(int i=0; i<calculatedTags.size()-1; i++){
-                if(!actualTags[i].equals(calculatedTags.get(i))){
+                if(!tagsList.get(i).equals(calculatedTags.get(i))){
                     incorrect++;
                 }
                 else{
@@ -267,6 +276,7 @@ public class PointOfSpeech {
                 }
             }
         }
+        System.out.println("Result of file test: ");
         System.out.println("Correct Tags: " + correct);
         System.out.println("Incorrect Tags: " + incorrect);
 
@@ -277,8 +287,7 @@ public class PointOfSpeech {
                 "Texts/simple-train-tags.txt", "Texts/simple-test-sentences.txt",
                 "Texts/simple-test-tags.txt");
         test0.trainModel();
-        //test0.testUserInput();
         test0.testModel();
-
+        test0.testUserInput();
     }
 }
