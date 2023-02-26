@@ -43,23 +43,26 @@ public class PointOfSpeech {
 
         // For each unique word
         for(String currentWord : sentence){
+            System.out.println("Current word: "+currentWord);
             // Create a map to track the previous state associated with a given state
             HashMap<String, String> previous = new HashMap<>();
+            // Create a map to track the scores of all the potential new states
+            HashMap<String, Double> newScore = new HashMap<>();
             // Loop through all current possible states
             for(String currState : currScore.keySet()) {
-                // Create a map to track the scores of all the potential new states
-                HashMap<String, Double> newScore = new HashMap<>();
+                System.out.println("Current state: "+ currState);
+                // if the transition score map of the current state is null, skip this iteration
+                if (transitions.get(currState) == null) {continue;}
                 // Loop through all possible transitions
                 for (String nextState : transitions.get(currState).keySet()) {
+                    // If the transition from the current state to the next hasn't been encountered, add it to the list of possible states
+                    //if (!transitions.get(currState).keySet().contains(nextState)) {transitions.get(currState).keySet().add(nextState);}
+                    System.out.println("Next state " + nextState + " has score " + transitions.get(currState).get(nextState));
                     // Define the score of the next state as the current score plus the transition score to the next state
                     double nextScore = currScore.get(currState) + transitions.get(currState).get(nextState);
-                    // If there is no observation for the current state (i.e. state = # ), skip current iteration
-                    if (observations.get(currState) == null) {
-                        continue;
-                    }
                     // If the current word is known to have current tag,
-                    if (observations.get(currState).containsKey(currentWord)) {
-                        nextScore += observations.get(currState).get(currentWord);  // Add the observation score
+                    if (observations.get(nextState).containsKey(currentWord)) {
+                        nextScore += observations.get(nextState).get(currentWord);  // Add the observation score
                     } else {
                         nextScore -= 100;       // Otherwise, assign unseen penalty of -100
                     }
@@ -68,17 +71,17 @@ public class PointOfSpeech {
                         newScore.put(nextState, nextScore);       // Assign this computed score to the associated state
                     }
                 }
-                // Advance
-                currScore = newScore;
                 String prevState = currState;       // For ease of understanding
                 // Add each winning state to a map with its predecessor
-                for (String state : currScore.keySet()) {
-                    previous.put(prevState, state);
+                for (String state : newScore.keySet()) {
+                    previous.put(state, prevState);
                 }
-                System.out.println(previous);
             }
+            // Advance
+            System.out.println(currentWord + ": " +currScore+ newScore);
+            currScore = newScore;
             backTrack.add(previous);
-            System.out.println(previous);
+            System.out.println("backMap: " + previous);
         }
         System.out.println(backTrack);
 
@@ -236,7 +239,7 @@ public class PointOfSpeech {
         Scanner input = new Scanner(System.in);
         System.out.println("Viterbi > ");
         String line = input.nextLine();
-        String[] words = line.toLowerCase().split("\\ ");
+        String[] words = line.toLowerCase().replace(".", "").split("\\ ");
         String[] tags = viterbi(words).toArray(new String[0]);
         System.out.println("tag" +tags);
 
@@ -252,8 +255,8 @@ public class PointOfSpeech {
         int incorrect = 0;
         int correct = 0;
         while((line = testWords.readLine()) != null){
-            String[] sentence = line.toLowerCase().split("\\ ");
-            String[] actualTags = testTags.readLine().split("\\ ");
+            String[] sentence = line.toLowerCase().replace(".", "").split("\\ ");
+            String[] actualTags = testTags.readLine().replace(".", "").split("\\ ");
             ArrayList<String> calculatedTags = viterbi(sentence);
             for(int i=0; i<calculatedTags.size()-1; i++){
                 if(!actualTags[i].equals(calculatedTags.get(i))){
