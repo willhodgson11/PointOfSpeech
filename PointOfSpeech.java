@@ -3,6 +3,13 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * Create a part of speech (POS) tagger labels each word in a sentence
+ * with its part of speech (noun, verb, etc.) using a bigram Hidden Markov Model.
+ * @author willhodgson, Dartmouth CS10, Winter 2023
+ * @author cullumtwiss, Dartmouth CS10, Winter 2023
+ * Thanks to recitation leader Bill Zheng for Viterbi backtrack implementation advice
+ */
 public class PointOfSpeech {
     public HashMap<String, HashMap<String, Double>> observations;   // Maps a given tag with all its associated words and their normalized frequencies
     public HashMap<String, HashMap<String, Double>> transitions;    // Maps a given state to all its possible nextStates, with the appropriate score
